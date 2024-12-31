@@ -48,25 +48,32 @@ public class Calculator {
         }
     }
 
-    public Double calculateTwo(TwoNumMode newMode, Double num) {
-        switch (mode) {
-            case normal -> {
-                num2 = 0.0;
-                num1 = num;
-                mode = newMode;
+    public Double calculateTwo(TwoNumMode newMode, Double num1, Double num2) {
+        if (num1 == null || num2 == null) {
+            return num1 != null ? num1 : (num2 != null ? num2 : 0.0);
+        }
+
+        switch (newMode) {
+            case add:
+                return num1 + num2;
+            case subtract:
+                return num1 - num2;
+            case multiply:
+                return num1 * num2;
+            case divide:
+                if (num2 == 0) {
+                    return NaN;
+                }
+                return num1 / num2;
+            case xPowerOfY:
+                return Math.pow(num1, num2);
+            default:
                 return NaN;
-            }
-            default -> {
-                num2 = num;
-                num1 = calculateTwoImpl();
-                mode = newMode;
-                return num1;
-            }
         }
     }
 
     public Double calculateEqual(Double num) {
-        return calculateTwo(TwoNumMode.normal, num);
+        return num;
     }
 
     public Double reset() {

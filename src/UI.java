@@ -2,9 +2,13 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.IOException;
 
-public class UI implements ActionListener {
+import static java.lang.Double.NaN;
+
+public class UI implements ActionListener, KeyListener {
 
     private final JFrame frame;
 
@@ -31,7 +35,11 @@ public class UI implements ActionListener {
     private final Font textFont;
 
     private Calculator.TwoNumMode pendingPercentOperation = Calculator.TwoNumMode.normal;
-    private Double operand1 = null;
+    private Double result = null;
+    private Calculator.TwoNumMode pendingOperation = Calculator.TwoNumMode.normal;
+    private boolean percentMode = false;
+    private Double lastInput = null;
+    private boolean afterEqual = false;
 
     public UI() throws IOException {
         frame = new JFrame("Calculator");
@@ -77,6 +85,7 @@ public class UI implements ActionListener {
         butBinary = new JButton("bin");
         
         calc = new Calculator();
+        text.addKeyListener(this);
     }
     
     public void init() {
@@ -149,14 +158,14 @@ public class UI implements ActionListener {
         panelSub6.add(butXPowerOfY);
         panel.add(panelSub6);
 
-        panelSub5.add(butLn);
+        panelSub7.add(butPercent);
         panelSub7.add(butCos);
         panelSub7.add(butSin);
         panelSub7.add(butTan);
         panel.add(panelSub7);
         
         panelSub8.add(butLog);
-        panelSub8.add(butPercent);
+        panelSub8.add(butLn);
         panelSub8.add(butAbs);
         panelSub8.add(butBinary);
         panel.add(panelSub8);
@@ -188,78 +197,161 @@ public class UI implements ActionListener {
     }
 
     @Override
+    public void keyTyped(KeyEvent e) {
+        char c = e.getKeyChar();
+        if (Character.isDigit(c)) {
+            if (afterEqual) {
+                text.setText("");
+                afterEqual = false;
+                result = null;
+                pendingOperation = Calculator.TwoNumMode.normal;
+            }
+            if(pendingOperation != Calculator.TwoNumMode.normal && lastInput != null) { //КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
+                text.setText("");
+            }
+            text.replaceSelection(String.valueOf(c));
+            lastInput = reader();
+        } else if (c == '\b') {
+            handleCancel();
+        } else if (c == '\n') {
+            try {
+                double currentNum = reader();
+                handleEqual(currentNum);
+            } catch (NumberFormatException ex) {
+
+            }
+        } else if (c == '+' || c == '-' || c == '*' || c == '/') { // Обработка операций
+            try {
+                double currentNum = reader();
+                switch (c) {
+                    case '+':
+                        handleTwoOperandOperation(Calculator.TwoNumMode.add, currentNum);
+                        break;
+                    case '-':
+                        handleTwoOperandOperation(Calculator.TwoNumMode.subtract, currentNum);
+                        break;
+                    case '*':
+                        handleTwoOperandOperation(Calculator.TwoNumMode.multiply, currentNum);
+                        break;
+                    case '/':
+                        handleTwoOperandOperation(Calculator.TwoNumMode.divide, currentNum);
+                        break;
+                }
+            } catch (NumberFormatException ex) {
+            }
+        }
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+    }
+
+
+    @Override
     public void actionPerformed(ActionEvent e) {
         final Object source = e.getSource();
-        Double checkNum = null;
+        Double currentNum = null;
         
         for (int i = 0; i < 10; i++) {
             if (source == but[i]) {
+                if (afterEqual) {
+                    text.setText("");
+                    afterEqual = false;
+                    result = null;
+                    pendingOperation = Calculator.TwoNumMode.normal;
+                }
                 text.replaceSelection(buttonValue[i]);
+                lastInput = reader();
                 return;
             }
         }
         
         
         try {
-            checkNum = Double.parseDouble(text.getText());
+            currentNum = Double.parseDouble(text.getText());
         } catch (NumberFormatException ex) {
             ex.getMessage();
         }
-        
-        if (checkNum != null || source == butCancel) {
-            if (source == butAdd) {
-                pendingPercentOperation = Calculator.TwoNumMode.addPercent;
-                writer(calc.calculateTwo(Calculator.TwoNumMode.add, reader()));
-                text.replaceSelection(butAdd.getText());
-            } else if (source == butSubtract) {
-                pendingPercentOperation = Calculator.TwoNumMode.subtractPercent;
-                writer(calc.calculateTwo(Calculator.TwoNumMode.subtract, reader()));
-                text.replaceSelection(butSubtract.getText());
-            } else if (source == butMultiply) {
-                pendingPercentOperation = Calculator.TwoNumMode.multiplyPercent;
-                writer(calc.calculateTwo(Calculator.TwoNumMode.multiply, reader()));
-                text.replaceSelection(butMultiply.getText());
-            } else if (source == butDivide) {
-                pendingPercentOperation = Calculator.TwoNumMode.dividePercent;
-                writer(calc.calculateTwo(Calculator.TwoNumMode.divide, reader()));
-                text.replaceSelection(butDivide.getText());
-            } else if (source == butXPowerOfY) {
-                writer(calc.calculateTwo(Calculator.TwoNumMode.xPowerOfY, reader()));
-                text.replaceSelection(butXPowerOfY.getText());
-            } else if (source == butSquare) {
-                writer(calc.calculateOne(Calculator.OneNumMode.square, reader()));
-            } else if (source == butRootSquare) {
-                writer(calc.calculateOne(Calculator.OneNumMode.rootSquare, reader()));
-            } else if (source == butOneDivide) {
-                writer(calc.calculateOne(Calculator.OneNumMode.oneDivided, reader()));
-            } else if (source == butCos) {
-                writer(calc.calculateOne(Calculator.OneNumMode.cos, reader()));
-            } else if (source == butSin) {
-                writer(calc.calculateOne(Calculator.OneNumMode.sin, reader()));
-            } else if (source == butTan) {
-                writer(calc.calculateOne(Calculator.OneNumMode.tan, reader()));
-            } else if (source == butLog) {
-                 writer(calc.calculateOne(Calculator.OneNumMode.log, reader()));
-            } else if (source == butLn) {
-                writer(calc.calculateOne(Calculator.OneNumMode.ln, reader()));
-            } else if (source == butPercent) {
-                if (pendingPercentOperation != Calculator.TwoNumMode.normal) {
-                    writer(calc.calculateEqual(reader()));
-                    pendingPercentOperation = Calculator.TwoNumMode.normal;
-                } else {
-                    writer(calc.calculateOne(Calculator.OneNumMode.rate, reader()));
-                }
-            } else if (source == butAbs) {
-                writer(calc.calculateOne(Calculator.OneNumMode.abs, reader()));
-            } else if (source == butEqual) {
-                writer(calc.calculateEqual(reader()));
-            } else if (source == butCancel) {
-                writer(calc.reset());
-            } else if (source == butBinary) {
-                parseToBinary();
-            }
+
+        if (source == butAdd || source == butSubtract || source == butMultiply ||
+                source == butDivide || source == butXPowerOfY) {
+            handleTwoOperandOperation(getOperationMode(source), currentNum);
+            afterEqual = false;
+        } else if (source == butPercent) {
+            handlePercent(currentNum);
+            afterEqual = false;
+        } else if (source == butEqual) {
+            handleEqual(currentNum);
+        } else if (source == butSquare || source == butRootSquare || source == butOneDivide ||
+                source == butCos || source == butSin || source == butTan || source == butLog ||
+                source == butLn || source == butAbs) {
+            handleOneOperandOperation(getOneOperandMode(source), currentNum);
+            afterEqual = false;
+        } else if (source == butCancel) {
+            handleCancel();
+            afterEqual = false;
+        } else if (source == butBinary) {
+            parseToBinary();
+            afterEqual = false;
         }
         text.selectAll();
+    }
+
+    private void handleTwoOperandOperation(Calculator.TwoNumMode operation, Double currentNum) {
+        if (result == null && !currentNum.isNaN()) {
+            result = currentNum;
+            pendingOperation = operation;
+            text.setText("");
+        } else {
+            if (percentMode) {
+                currentNum = result * currentNum / 100;
+                percentMode = false;
+            }
+            double tempResult = calc.calculateTwo(pendingOperation, result, currentNum);
+            writer(result);
+            if (!Double.isNaN(tempResult)) {
+                result = tempResult;
+            }
+        }
+        pendingOperation = operation;
+        text.setText(result.toString()); // *КЛЮЧЕВОЕ ИЗМЕНЕНИЕ*
+    }
+
+    private void handleEqual(Double currentNum) {
+        if (pendingOperation != Calculator.TwoNumMode.normal) {
+            if (result == null) {
+                result = lastInput;
+            }
+            if (percentMode) {
+                currentNum = result * currentNum / 100;
+                percentMode = false;
+            }
+            double tempResult = calc.calculateTwo(pendingOperation, result, currentNum);
+            writer(tempResult);
+            if (!Double.isNaN(tempResult)) {
+                result = tempResult;
+            }
+            pendingOperation = Calculator.TwoNumMode.normal;
+        } else if (lastInput != null && result != null && afterEqual) {
+            double tempResult = calc.calculateTwo(pendingOperation, result, lastInput);
+            writer(tempResult);
+            if (!Double.isNaN(tempResult)) {
+                result = tempResult;
+            }
+        } else if (lastInput != null) {
+            writer(lastInput);
+            result = lastInput;
+        } else if (result != null) {
+            writer(result);
+        } else {
+            writer(0.0);
+            result = 0.0;
+        }
+        afterEqual = true;
     }
 
     private void parseToBinary() {
@@ -268,6 +360,50 @@ public class UI implements ActionListener {
         } catch (NumberFormatException exception) {
             System.err.println("Ошибка при переводе в двоичную систему счисления" + exception.toString());
         }
+    }
+
+    private Calculator.TwoNumMode getOperationMode(Object source) {
+        if (source == butAdd) return Calculator.TwoNumMode.add;
+        if (source == butSubtract) return Calculator.TwoNumMode.subtract;
+        if (source == butMultiply) return Calculator.TwoNumMode.multiply;
+        if (source == butDivide) return Calculator.TwoNumMode.divide;
+        if (source == butXPowerOfY) return Calculator.TwoNumMode.xPowerOfY;
+        return Calculator.TwoNumMode.normal;
+    }
+
+    private Calculator.OneNumMode getOneOperandMode(Object source) {
+        if (source == butSquare) return Calculator.OneNumMode.square;
+        if (source == butRootSquare) return Calculator.OneNumMode.rootSquare;
+        if (source == butOneDivide) return Calculator.OneNumMode.oneDivided;
+        if (source == butCos) return Calculator.OneNumMode.cos;
+        if (source == butSin) return Calculator.OneNumMode.sin;
+        if (source == butTan) return Calculator.OneNumMode.tan;
+        if (source == butLog) return Calculator.OneNumMode.log;
+        if (source == butLn) return Calculator.OneNumMode.ln;
+        if (source == butAbs) return Calculator.OneNumMode.abs;
+        return null;
+    }
+
+    private void handleOneOperandOperation(Calculator.OneNumMode operation, Double currentNum) {
+        if (!Double.isNaN(currentNum)) {
+            writer(calc.calculateOne(operation, currentNum));
+        }
+    }
+
+    private void handlePercent(Double currentNum) {
+        if (result != null) {
+            percentMode = true;
+        } else {
+            writer(calc.calculateOne(Calculator.OneNumMode.rate, currentNum));
+        }
+    }
+
+    private void handleCancel() {
+        writer(calc.reset());
+        pendingOperation = Calculator.TwoNumMode.normal;
+        result = null;
+        percentMode = false;
+        text.setText("");
     }
 
     public Double reader() {
@@ -279,7 +415,7 @@ public class UI implements ActionListener {
         return num;
     }
     
-    public void writer(final Double num) {
+    public void writer(Double num) {
         if (Double.isNaN(num)) {
             text.setText("");
         } else {
