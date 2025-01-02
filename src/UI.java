@@ -40,6 +40,7 @@ public class UI implements ActionListener, KeyListener {
     private boolean percentMode = false;
     private Double lastInput = null;
     private boolean afterEqual = false;
+    private boolean newOperand = false;
 
     public UI() throws IOException {
         frame = new JFrame("Calculator");
@@ -206,8 +207,9 @@ public class UI implements ActionListener, KeyListener {
                 result = null;
                 pendingOperation = Calculator.TwoNumMode.normal;
             }
-            if(pendingOperation != Calculator.TwoNumMode.normal && lastInput != null) { //КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
+            if(newOperand) {
                 text.setText("");
+                newOperand = false;
             }
             text.replaceSelection(String.valueOf(c));
             lastInput = reader();
@@ -220,23 +222,30 @@ public class UI implements ActionListener, KeyListener {
             } catch (NumberFormatException ex) {
 
             }
-        } else if (c == '+' || c == '-' || c == '*' || c == '/') { // Обработка операций
+        } else if (c == '+' || c == '-' || c == '*' || c == '/') {
             try {
-                double currentNum = reader();
+                if (afterEqual && result != null) {
+                    lastInput = result;
+                    afterEqual = false;
+                } else {
+                    double currentNum = reader();
+                    lastInput = currentNum;
+                }
                 switch (c) {
                     case '+':
-                        handleTwoOperandOperation(Calculator.TwoNumMode.add, currentNum);
+                        handleTwoOperandOperation(Calculator.TwoNumMode.add, lastInput);
                         break;
                     case '-':
-                        handleTwoOperandOperation(Calculator.TwoNumMode.subtract, currentNum);
+                        handleTwoOperandOperation(Calculator.TwoNumMode.subtract, lastInput);
                         break;
                     case '*':
-                        handleTwoOperandOperation(Calculator.TwoNumMode.multiply, currentNum);
+                        handleTwoOperandOperation(Calculator.TwoNumMode.multiply, lastInput);
                         break;
                     case '/':
-                        handleTwoOperandOperation(Calculator.TwoNumMode.divide, currentNum);
+                        handleTwoOperandOperation(Calculator.TwoNumMode.divide, lastInput);
                         break;
                 }
+                newOperand = true;
             } catch (NumberFormatException ex) {
             }
         }
@@ -318,7 +327,7 @@ public class UI implements ActionListener, KeyListener {
             }
         }
         pendingOperation = operation;
-        text.setText(result.toString()); // *КЛЮЧЕВОЕ ИЗМЕНЕНИЕ*
+        text.setText(result.toString());
     }
 
     private void handleEqual(Double currentNum) {
